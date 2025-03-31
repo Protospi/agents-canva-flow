@@ -44,6 +44,14 @@
           icon="restart_alt"
           @click="resetZoom"
         />
+        <q-btn
+          flat
+          round
+          color="grey-8"
+          icon="save"
+          @click="saveFlow"
+          class="q-ml-md"
+        />
       </div>
     </div>
     <q-card class="canvas-container">
@@ -76,23 +84,34 @@
           @mousedown="(e) => startDrag(e, item)"
         >
           <q-card flat bordered>
-            <q-card-section class="card-header">
+            <q-card-section :class="['card-header', 'colored-header']">
               <div class="row full-width items-center justify-between">
                 <div class="row items-center">
                   <q-icon
                     :name="getItemIcon(item.type)"
                     size="24px"
-                    class="q-mr-sm"
+                    class="q-mr-sm text-white"
                   />
-                  <div class="text-h6">{{ item.title || getItemTitle(item) }}</div>
+                  <div class="text-h6 text-white">{{ item.title || getItemTitle(item) }}</div>
                 </div>
-                <q-btn
-                  flat
-                  round
-                  dense
-                  icon="settings"
-                  @click.stop="toggleDrawer(item)"
-                />
+                <div class="row">
+                  <q-btn
+                    flat
+                    round
+                    dense
+                    icon="delete"
+                    class="text-white q-mr-xs"
+                    @click.stop="deleteItem(item)"
+                  />
+                  <q-btn
+                    flat
+                    round
+                    dense
+                    icon="settings"
+                    class="text-white"
+                    @click.stop="toggleDrawer(item)"
+                  />
+                </div>
               </div>
             </q-card-section>
             <q-card-section>
@@ -209,7 +228,7 @@
             <q-btn
               unelevated
               label="SAVE CHANGES"
-              class="custom-button"
+              class="custom-button text-white"
               @click="saveChanges"
             />
           </div>
@@ -288,6 +307,22 @@ const addSkill = () => {
     x: Math.random() * 500,
     y: Math.random() * 300
   });
+};
+
+const deleteItem = (item: FlowItem) => {
+  // Delete all connections associated with this item
+  connections.value = connections.value.filter(conn => 
+    conn.source.itemId !== item.id && conn.target.itemId !== item.id
+  );
+  
+  // Delete the item
+  items.value = items.value.filter(i => i.id !== item.id);
+  
+  // Close drawer if it was open for the deleted item
+  if (selectedItem.value && selectedItem.value.id === item.id) {
+    drawerOpen.value = false;
+    selectedItem.value = null;
+  }
 };
 
 const getItemIcon = (type: FlowItem['type']) => {
@@ -390,6 +425,11 @@ const toggleDrawer = (item: FlowItem) => {
 const saveChanges = () => {
   // For now, just close the drawer since changes are already saved in real-time
   drawerOpen.value = false;
+};
+
+const saveFlow = () => {
+  // Placeholder for future save functionality
+  console.log('Save flow functionality will be implemented here');
 };
 
 // Connection handling functions
@@ -666,6 +706,11 @@ onUnmounted(() => {
   align-items: center;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.colored-header {
+  background-color: #6467F2;
+  color: white;
 }
 
 .drawer-content {
