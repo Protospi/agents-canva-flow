@@ -55,12 +55,25 @@
         }"
         @wheel.prevent="handleWheel"
       >
+        <!-- SVG container for drawing connections -->
+        <svg class="connections-layer" width="100%" height="100%">
+          <path 
+            v-for="connection in connections" 
+            :key="connection.id" 
+            :d="generatePath(connection)" 
+            fill="none" 
+            stroke="#6467F2" 
+            stroke-width="2" 
+            :stroke-dasharray="connection.isInProgress ? '5,5' : 'none'"
+          />
+        </svg>
+        
         <div
           v-for="item in items"
           :key="item.id"
           class="flow-item"
           :style="{ left: item.x + 'px', top: item.y + 'px' }"
-          @mousedown="startDrag($event, item)"
+          @mousedown="(e) => startDrag(e, item)"
         >
           <q-card flat bordered>
             <q-card-section class="card-header">
@@ -86,6 +99,35 @@
               <!-- Placeholder for future content -->
               <div class="text-grey-7">Additional information will be displayed here</div>
             </q-card-section>
+            
+            <!-- Connection points based on item type -->
+            <div class="connection-points">
+              <!-- User has only right connection -->
+              <div 
+                v-if="item.type === 'user'" 
+                class="connection-point right"
+                @mousedown.stop="startConnection($event, item, 'right')"
+              ></div>
+              
+              <!-- Agent has both left and right connections -->
+              <template v-if="item.type === 'agent'">
+                <div 
+                  class="connection-point left"
+                  @mousedown.stop="startConnection($event, item, 'left')"
+                ></div>
+                <div 
+                  class="connection-point right"
+                  @mousedown.stop="startConnection($event, item, 'right')"
+                ></div>
+              </template>
+              
+              <!-- Skill has only left connection -->
+              <div 
+                v-if="item.type === 'skill'" 
+                class="connection-point left"
+                @mousedown.stop="startConnection($event, item, 'left')"
+              ></div>
+            </div>
           </q-card>
         </div>
       </div>
@@ -178,7 +220,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue';
+import { ref, onUnmounted, onMounted } from 'vue';
+
+interface ConnectionPoint {
+  itemId: number;
+  side: 'left' | 'right';
+}
+
+interface Connection {
+  id: number;
+  source: ConnectionPoint;
+  target: ConnectionPoint;
+  isInProgress?: boolean;
+  mousePosX?: number;
+  mousePosY?: number;
+}
 
 interface FlowItem {
   id: number;
@@ -198,10 +254,14 @@ const zoom = ref(1);
 const position = ref<Position>({ x: 0, y: 0 });
 const drawerOpen = ref(false);
 const selectedItem = ref<FlowItem | null>(null);
+const connections = ref<Connection[]>([]);
+const pendingConnection = ref<Connection | null>(null);
 let nextId = 1;
+let nextConnectionId = 1;
 let draggedItem: FlowItem | null = null;
 let initialX = 0;
 let initialY = 0;
+let isDraggingConnection = false;
 
 const addUser = () => {
   items.value.push({
@@ -281,6 +341,9 @@ const resetZoom = () => {
 };
 
 const startDrag = (event: MouseEvent, item: FlowItem) => {
+  // Don't start dragging if we're already dragging a connection
+  if (isDraggingConnection) return;
+  
   draggedItem = item;
   const rect = (event.target as HTMLElement).getBoundingClientRect();
   initialX = event.clientX - rect.left;
@@ -329,9 +392,211 @@ const saveChanges = () => {
   drawerOpen.value = false;
 };
 
+// Connection handling functions
+
+const startConnection = (event: MouseEvent, item: FlowItem, side: 'left' | 'right') => {
+  event.stopPropagation();
+  isDraggingConnection = true;
+  
+  // Create a temporary connection
+  const sourcePoint: ConnectionPoint = { itemId: item.id, side };
+  const targetPoint: ConnectionPoint = { itemId: -1, side: side === 'left' ? 'right' : 'left' };
+  
+  pendingConnection.value = {
+    id: nextConnectionId++,
+    source: sourcePoint,
+    target: targetPoint,
+    isInProgress: true,
+    mousePosX: 0,
+    mousePosY: 0
+  };
+  
+  connections.value.push(pendingConnection.value);
+  
+  const canvas = document.querySelector('.canvas-area');
+  if (canvas) {
+    canvas.addEventListener('mousemove', updatePendingConnection as EventListener);
+    canvas.addEventListener('mouseup', finishConnection as EventListener);
+  }
+};
+
+const updatePendingConnection = (event: MouseEvent) => {
+  if (!pendingConnection.value) return;
+  
+  const canvasRect = document.querySelector('.canvas-area')?.getBoundingClientRect();
+  if (!canvasRect) return;
+  
+  // Update the mouse position as the temporary target
+  pendingConnection.value.mousePosX = (event.clientX - canvasRect.left) / zoom.value;
+  pendingConnection.value.mousePosY = (event.clientY - canvasRect.top) / zoom.value;
+};
+
+const finishConnection = (event: MouseEvent) => {
+  if (!pendingConnection.value) return;
+  
+  // Remove event listeners
+  const canvas = document.querySelector('.canvas-area');
+  if (canvas) {
+    canvas.removeEventListener('mousemove', updatePendingConnection as EventListener);
+    canvas.removeEventListener('mouseup', finishConnection as EventListener);
+  }
+  
+  // Check if we're over a valid connection point
+  const connectionPoint = findConnectionPointUnderMouse(event);
+  
+  if (connectionPoint && isValidConnection(pendingConnection.value.source, connectionPoint)) {
+    // Finalize the connection
+    pendingConnection.value.target = connectionPoint;
+    pendingConnection.value.isInProgress = false;
+  } else {
+    // Remove the pending connection
+    connections.value = connections.value.filter(conn => conn.id !== pendingConnection.value?.id);
+  }
+  
+  pendingConnection.value = null;
+  isDraggingConnection = false;
+};
+
+const findConnectionPointUnderMouse = (event: MouseEvent): ConnectionPoint | null => {
+  // Find all connection points
+  const points = document.querySelectorAll('.connection-point');
+  const mouseX = event.clientX;
+  const mouseY = event.clientY;
+  
+  for (let i = 0; i < points.length; i++) {
+    const point = points[i];
+    if (!point) continue;
+    
+    const rect = point.getBoundingClientRect();
+    
+    if (
+      mouseX >= rect.left && 
+      mouseX <= rect.right && 
+      mouseY >= rect.top && 
+      mouseY <= rect.bottom
+    ) {
+      // Find parent .flow-item element
+      let currentNode: HTMLElement | null = point as HTMLElement;
+      let itemIdStr = null;
+      
+      // Walk up the DOM tree to find parent with data-item-id attribute
+      while (currentNode && !itemIdStr) {
+        if (currentNode.classList.contains('flow-item')) {
+          itemIdStr = currentNode.getAttribute('data-item-id');
+          break;
+        }
+        currentNode = currentNode.parentElement;
+      }
+      
+      if (itemIdStr) {
+        const itemId = parseInt(itemIdStr);
+        const side: 'left' | 'right' = point.classList.contains('left') ? 'left' : 'right';
+        
+        if (itemId >= 0) {
+          return { itemId, side };
+        }
+      }
+    }
+  }
+  
+  return null;
+};
+
+const isValidConnection = (source: ConnectionPoint, target: ConnectionPoint) => {
+  if (source.itemId === target.itemId) return false;
+  if (source.side === target.side) return false;
+  
+  // Get the source and target items
+  const sourceItem = items.value.find(item => item.id === source.itemId);
+  const targetItem = items.value.find(item => item.id === target.itemId);
+  
+  if (!sourceItem || !targetItem) return false;
+  
+  // Check connection rules
+  // 1. User can only connect to agent from right side
+  if (sourceItem.type === 'user' && (targetItem.type !== 'agent' || source.side !== 'right' || target.side !== 'left')) {
+    return false;
+  }
+  
+  // 2. Agent can connect to skill from right side
+  if (sourceItem.type === 'agent' && source.side === 'right') {
+    return targetItem.type === 'skill' && target.side === 'left';
+  }
+  
+  // 3. Agent can receive connection from user or agent on left side
+  if (targetItem.type === 'agent' && target.side === 'left') {
+    return sourceItem.type === 'user' || sourceItem.type === 'agent';
+  }
+  
+  // 4. Skill can only connect to agent on left side
+  if (targetItem.type === 'skill') {
+    return sourceItem.type === 'agent' && target.side === 'left' && source.side === 'right';
+  }
+  
+  return false;
+};
+
+// Function to generate the SVG path for a connection
+const generatePath = (connection: Connection) => {
+  // Find source and target items
+  const sourceItem = items.value.find(item => item.id === connection.source.itemId);
+  const targetItem = items.value.find(item => item.id === connection.target.itemId);
+  
+  if (!sourceItem && !connection.isInProgress) return '';
+  
+  // Calculate source connection point position
+  const sourceX = sourceItem ? sourceItem.x + (connection.source.side === 'right' ? 300 : 0) : 0;
+  const sourceY = sourceItem ? sourceItem.y + 80 : 0;
+  
+  let targetX, targetY;
+  
+  if (connection.isInProgress) {
+    // For pending connections, use mouse position as target
+    targetX = connection.mousePosX || 0;
+    targetY = connection.mousePosY || 0;
+  } else if (targetItem) {
+    // For completed connections, use the target connection point
+    targetX = targetItem.x + (connection.target.side === 'right' ? 300 : 0);
+    targetY = targetItem.y + 80;
+  } else {
+    return '';
+  }
+  
+  // Create a curved path
+  const controlPointX1 = sourceX + (connection.source.side === 'right' ? 50 : -50);
+  const controlPointX2 = targetX + (connection.target.side === 'right' ? 50 : -50);
+  
+  return `M ${sourceX} ${sourceY} C ${controlPointX1} ${sourceY}, ${controlPointX2} ${targetY}, ${targetX} ${targetY}`;
+};
+
+// Attribute data-item-id to each flow-item
+onMounted(() => {
+  const observer = new MutationObserver(() => {
+    document.querySelectorAll('.flow-item').forEach((el, index) => {
+      if (index < items.value.length) {
+        const item = items.value[index];
+        if (item && item.id !== undefined) {
+          el.setAttribute('data-item-id', item.id.toString());
+        }
+      }
+    });
+  });
+  
+  observer.observe(document.querySelector('.canvas-area') || document.body, {
+    childList: true,
+    subtree: true
+  });
+});
+
 onUnmounted(() => {
   document.removeEventListener('mousemove', onDrag);
   document.removeEventListener('mouseup', stopDrag);
+  
+  const canvas = document.querySelector('.canvas-area');
+  if (canvas) {
+    canvas.removeEventListener('mousemove', updatePendingConnection as EventListener);
+    canvas.removeEventListener('mouseup', finishConnection as EventListener);
+  }
 });
 </script>
 
@@ -388,6 +653,7 @@ onUnmounted(() => {
   transition: all 0.2s ease;
   box-shadow: rgba(0, 0, 0, 0.04) 0px 3px 5px;
   min-height: 160px;
+  position: relative;
 }
 
 .flow-item .q-card:hover {
@@ -433,5 +699,53 @@ onUnmounted(() => {
 
 .full-width {
   width: 100%;
+}
+
+/* Connection points styling */
+.connection-points {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.connection-point {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #6467F2;
+  border: 2px solid white;
+  border-radius: 50%;
+  cursor: crosshair;
+  pointer-events: all;
+}
+
+.connection-point.left {
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.connection-point.right {
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.connection-point:hover {
+  transform: translateY(-50%) scale(1.2);
+}
+
+/* Connection lines */
+.connections-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
 }
 </style> 
