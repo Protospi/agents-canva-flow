@@ -3,9 +3,9 @@
     <div class="action-buttons">
       <q-btn
         color="primary"
-        icon="person_add"
-        label="Add User"
-        @click="addUser"
+        icon="hub"
+        label="Add Channel"
+        @click="addChannel"
         class="q-mr-sm custom-button"
       />
       <q-btn
@@ -62,6 +62,7 @@
           transformOrigin: '0 0'
         }"
         @wheel.prevent="handleWheel"
+        @mousedown="startCanvasDrag"
       >
         <!-- SVG container for drawing connections -->
         <svg class="connections-layer" width="100%" height="100%">
@@ -115,15 +116,14 @@
               </div>
             </q-card-section>
             <q-card-section>
-              <!-- Placeholder for future content -->
-              <div class="text-grey-7">Additional information will be displayed here</div>
+              <div class="text-grey-7">{{ item.description || 'Additional description will be displayed here' }}</div>
             </q-card-section>
             
             <!-- Connection points based on item type -->
             <div class="connection-points">
-              <!-- User has only right connection -->
+              <!-- Channel has only right connection -->
               <div 
-                v-if="item.type === 'user'" 
+                v-if="item.type === 'channel'" 
                 class="connection-point right"
                 @mousedown.stop="startConnection($event, item, 'right')"
               ></div>
@@ -198,6 +198,16 @@
                 </template>
               </q-input>
 
+              <q-input
+                v-model="selectedItem.description"
+                label="Card Description"
+                placeholder="Additional description will be displayed here"
+                outlined
+                class="q-mb-lg full-width"
+                type="textarea"
+                rows="3"
+              />
+
               <div class="text-subtitle2 q-mb-sm">Card Type</div>
               <div class="row items-center q-mb-lg">
                 <q-icon
@@ -211,7 +221,7 @@
               <div class="text-subtitle2 q-mb-sm">Preview</div>
               <q-card bordered class="full-width">
                 <q-card-section>
-                  <div class="text-grey-7">Additional information will be displayed here</div>
+                  <div class="text-grey-7">{{ selectedItem.description || 'Additional description will be displayed here' }}</div>
                 </q-card-section>
               </q-card>
             </div>
@@ -257,10 +267,11 @@ interface Connection {
 
 interface FlowItem {
   id: number;
-  type: 'user' | 'agent' | 'skill';
+  type: 'channel' | 'agent' | 'skill';
   x: number;
   y: number;
   title?: string;
+  description?: string;
 }
 
 interface Position {
@@ -281,13 +292,17 @@ let draggedItem: FlowItem | null = null;
 let initialX = 0;
 let initialY = 0;
 let isDraggingConnection = false;
+let isDraggingCanvas = false;
+let canvasInitialX = 0;
+let canvasInitialY = 0;
 
-const addUser = () => {
+const addChannel = () => {
   items.value.push({
     id: nextId++,
-    type: 'user',
+    type: 'channel',
     x: Math.random() * 500,
-    y: Math.random() * 300
+    y: Math.random() * 300,
+    description: ''
   });
 };
 
@@ -296,7 +311,8 @@ const addAgent = () => {
     id: nextId++,
     type: 'agent',
     x: Math.random() * 500,
-    y: Math.random() * 300
+    y: Math.random() * 300,
+    description: ''
   });
 };
 
@@ -305,7 +321,8 @@ const addSkill = () => {
     id: nextId++,
     type: 'skill',
     x: Math.random() * 500,
-    y: Math.random() * 300
+    y: Math.random() * 300,
+    description: ''
   });
 };
 
@@ -327,8 +344,8 @@ const deleteItem = (item: FlowItem) => {
 
 const getItemIcon = (type: FlowItem['type']) => {
   switch (type) {
-    case 'user':
-      return 'person';
+    case 'channel':
+      return 'hub';
     case 'agent':
       return 'smart_toy';
     case 'skill':
@@ -340,8 +357,8 @@ const getItemIcon = (type: FlowItem['type']) => {
 
 const getItemTitle = (item: FlowItem) => {
   switch (item.type) {
-    case 'user':
-      return 'User';
+    case 'channel':
+      return 'Channel';
     case 'agent':
       return 'Agent';
     case 'skill':
@@ -372,7 +389,35 @@ const handleZoom = (delta: number, mouseX = window.innerWidth / 2, mouseY = wind
 
 const resetZoom = () => {
   zoom.value = 1;
-  position.value = { x: 0, y: 0 };
+  
+  // Calculate the bounding box of all cards
+  if (items.value.length === 0) {
+    position.value = { x: 0, y: 0 };
+    return;
+  }
+  
+  // Find min and max coordinates to determine bounding box
+  const minX = Math.min(...items.value.map(item => item.x));
+  const maxX = Math.max(...items.value.map(item => item.x + 300)); // assuming card width is 300px
+  const minY = Math.min(...items.value.map(item => item.y));
+  const maxY = Math.max(...items.value.map(item => item.y + 160)); // assuming card height is 160px
+  
+  // Calculate center of the bounding box
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  
+  // Get canvas container dimensions
+  const canvasContainer = document.querySelector('.canvas-container');
+  if (!canvasContainer) return;
+  
+  const containerWidth = canvasContainer.clientWidth;
+  const containerHeight = canvasContainer.clientHeight;
+  
+  // Set position to center the cards in the container
+  position.value = {
+    x: containerWidth / 2 - centerX,
+    y: containerHeight / 2 - centerY
+  };
 };
 
 const startDrag = (event: MouseEvent, item: FlowItem) => {
@@ -553,8 +598,8 @@ const isValidConnection = (source: ConnectionPoint, target: ConnectionPoint) => 
   if (!sourceItem || !targetItem) return false;
   
   // Check connection rules
-  // 1. User can only connect to agent from right side
-  if (sourceItem.type === 'user' && (targetItem.type !== 'agent' || source.side !== 'right' || target.side !== 'left')) {
+  // 1. Channel can only connect to agent from right side
+  if (sourceItem.type === 'channel' && (targetItem.type !== 'agent' || source.side !== 'right' || target.side !== 'left')) {
     return false;
   }
   
@@ -563,9 +608,9 @@ const isValidConnection = (source: ConnectionPoint, target: ConnectionPoint) => 
     return targetItem.type === 'skill' && target.side === 'left';
   }
   
-  // 3. Agent can receive connection from user or agent on left side
+  // 3. Agent can receive connection from channel or agent on left side
   if (targetItem.type === 'agent' && target.side === 'left') {
-    return sourceItem.type === 'user' || sourceItem.type === 'agent';
+    return sourceItem.type === 'channel' || sourceItem.type === 'agent';
   }
   
   // 4. Skill can only connect to agent on left side
@@ -609,6 +654,47 @@ const generatePath = (connection: Connection) => {
   return `M ${sourceX} ${sourceY} C ${controlPointX1} ${sourceY}, ${controlPointX2} ${targetY}, ${targetX} ${targetY}`;
 };
 
+// Add canvas dragging functions
+const startCanvasDrag = (event: MouseEvent) => {
+  // Don't start canvas drag if we're over a card or already dragging a connection
+  if (event.target !== event.currentTarget || isDraggingConnection) return;
+  
+  isDraggingCanvas = true;
+  canvasInitialX = event.clientX - position.value.x;
+  canvasInitialY = event.clientY - position.value.y;
+  
+  // Add dragging class to canvas
+  const canvas = document.querySelector('.canvas-area');
+  if (canvas) {
+    canvas.classList.add('dragging');
+  }
+  
+  document.addEventListener('mousemove', onCanvasDrag);
+  document.addEventListener('mouseup', stopCanvasDrag);
+};
+
+const onCanvasDrag = (event: MouseEvent) => {
+  if (!isDraggingCanvas) return;
+  
+  position.value = {
+    x: event.clientX - canvasInitialX,
+    y: event.clientY - canvasInitialY
+  };
+};
+
+const stopCanvasDrag = () => {
+  isDraggingCanvas = false;
+  
+  // Remove dragging class from canvas
+  const canvas = document.querySelector('.canvas-area');
+  if (canvas) {
+    canvas.classList.remove('dragging');
+  }
+  
+  document.removeEventListener('mousemove', onCanvasDrag);
+  document.removeEventListener('mouseup', stopCanvasDrag);
+};
+
 // Attribute data-item-id to each flow-item
 onMounted(() => {
   const observer = new MutationObserver(() => {
@@ -631,6 +717,8 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('mousemove', onDrag);
   document.removeEventListener('mouseup', stopDrag);
+  document.removeEventListener('mousemove', onCanvasDrag);
+  document.removeEventListener('mouseup', stopCanvasDrag);
   
   const canvas = document.querySelector('.canvas-area');
   if (canvas) {
@@ -680,6 +768,11 @@ onUnmounted(() => {
   position: relative;
   transition: transform 0.1s ease;
   will-change: transform;
+  cursor: grab;
+}
+
+.canvas-area.dragging {
+  cursor: grabbing;
 }
 
 .flow-item {
