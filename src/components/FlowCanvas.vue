@@ -1,13 +1,20 @@
 <template>
   <div class="flow-canvas">
     <div class="action-buttons">
-      <q-btn
+      <q-btn-dropdown
         color="primary"
         icon="hub"
         label="Add Channel"
-        @click="addChannel"
         class="q-mr-sm custom-button"
-      />
+      >
+        <q-list>
+          <q-item v-for="channelType in channelTypes" :key="channelType.value" clickable v-close-popup @click="addChannel(channelType.value as ChannelType)">
+            <q-item-section>
+              <q-item-label>{{ channelType.label }}</q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </q-btn-dropdown>
       <q-btn
         color="primary"
         icon="smart_toy"
@@ -15,13 +22,20 @@
         @click="addAgent"
         class="q-mr-sm custom-button"
       />
-      <q-btn
+      <q-btn-dropdown
         color="primary"
         icon="build"
         label="Add Skill"
-        @click="addSkill"
         class="custom-button"
-      />
+      >
+        <q-list>
+          <q-item v-for="skillType in skillTypes" :key="skillType.value" clickable v-close-popup @click="addSkill(skillType.value as SkillType)">
+            <q-item-section>
+              <q-item-label>{{ skillType.label }}</q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </q-btn-dropdown>
       <div class="zoom-controls q-ml-md">
         <q-btn
           flat
@@ -89,7 +103,7 @@
               <div class="row full-width items-center justify-between">
                 <div class="row items-center">
                   <q-icon
-                    :name="getItemIcon(item.type)"
+                    :name="getItemIcon(item.type, item)"
                     size="24px"
                     class="q-mr-sm text-white"
                   />
@@ -168,11 +182,21 @@
             <div class="row items-center justify-between">
               <div class="text-h6 row items-center">
                 <q-icon
-                  :name="getItemIcon(selectedItem.type)"
+                  :name="getItemIcon(selectedItem.type, selectedItem)"
                   size="28px"
                   class="q-mr-sm"
                 />
-                Card Settings
+                <div class="column">
+                  <div class="row items-center">
+                    <span>{{ selectedItem.title || getItemTitle(selectedItem) }}</span>
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs" v-if="selectedItem.type === 'skill' && selectedItem.skillType">
+                    {{ getSkillTypeLabel(selectedItem.skillType) }}
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs" v-if="selectedItem.type === 'channel' && selectedItem.channelType">
+                    {{ getChannelTypeLabel(selectedItem.channelType) }}
+                  </div>
+                </div>
               </div>
               <q-btn
                 flat
@@ -194,7 +218,7 @@
                 class="q-mb-lg full-width"
               >
                 <template v-slot:prepend>
-                  <q-icon :name="getItemIcon(selectedItem.type)" size="24px" />
+                  <q-icon :name="getItemIcon(selectedItem.type, selectedItem)" size="24px" />
                 </template>
               </q-input>
 
@@ -207,16 +231,6 @@
                 type="textarea"
                 rows="3"
               />
-
-              <div class="text-subtitle2 q-mb-sm">Card Type</div>
-              <div class="row items-center q-mb-lg">
-                <q-icon
-                  :name="getItemIcon(selectedItem.type)"
-                  size="24px"
-                  class="q-mr-sm"
-                />
-                <span class="text-capitalize">{{ selectedItem.type }}</span>
-              </div>
 
               <div class="text-subtitle2 q-mb-sm">Preview</div>
               <q-card bordered class="full-width">
@@ -265,6 +279,14 @@ interface Connection {
   mousePosY?: number;
 }
 
+// Define skill type
+type SkillType = 'script' | 'dados_contato' | 'dados_entidade' | 'live_chat' | 
+                'definir_unidade' | 'rag' | 'smart_content' | 'registrar_sdm' | 
+                'enviar_midia' | 'mensagem_interativa';
+
+// Define channel type
+type ChannelType = 'whatsapp' | 'instagram' | 'facebook' | 'widget';
+
 interface FlowItem {
   id: number;
   type: 'channel' | 'agent' | 'skill';
@@ -272,6 +294,8 @@ interface FlowItem {
   y: number;
   title?: string;
   description?: string;
+  skillType?: SkillType;
+  channelType?: ChannelType;
 }
 
 interface Position {
@@ -286,6 +310,29 @@ const drawerOpen = ref(false);
 const selectedItem = ref<FlowItem | null>(null);
 const connections = ref<Connection[]>([]);
 const pendingConnection = ref<Connection | null>(null);
+
+// Define skill types
+const skillTypes = [
+  { value: 'script', label: 'Script' },
+  { value: 'dados_contato', label: 'Dados de Contato' },
+  { value: 'dados_entidade', label: 'Dados da Entidade' },
+  { value: 'live_chat', label: 'Live Chat' },
+  { value: 'definir_unidade', label: 'Definir Unidade' },
+  { value: 'rag', label: 'RAG' },
+  { value: 'smart_content', label: 'Smart Content' },
+  { value: 'registrar_sdm', label: 'Registrar no SDM' },
+  { value: 'enviar_midia', label: 'Enviar mídia' },
+  { value: 'mensagem_interativa', label: 'Mensagem interativa' }
+];
+
+// Define channel types
+const channelTypes = [
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'facebook', label: 'Facebook' },
+  { value: 'widget', label: 'Widget' }
+];
+
 let nextId = 1;
 let nextConnectionId = 1;
 let draggedItem: FlowItem | null = null;
@@ -296,13 +343,16 @@ let isDraggingCanvas = false;
 let canvasInitialX = 0;
 let canvasInitialY = 0;
 
-const addChannel = () => {
+const addChannel = (channelType: ChannelType) => {
+  const channelTypeLabel = getChannelTypeLabel(channelType);
   items.value.push({
     id: nextId++,
     type: 'channel',
     x: Math.random() * 500,
     y: Math.random() * 300,
-    description: ''
+    description: '',
+    channelType: channelType,
+    title: channelTypeLabel
   });
 };
 
@@ -316,13 +366,16 @@ const addAgent = () => {
   });
 };
 
-const addSkill = () => {
+const addSkill = (skillType: SkillType) => {
+  const skillTypeLabel = getSkillTypeLabel(skillType);
   items.value.push({
     id: nextId++,
     type: 'skill',
     x: Math.random() * 500,
     y: Math.random() * 300,
-    description: ''
+    description: '',
+    skillType: skillType,
+    title: skillTypeLabel
   });
 };
 
@@ -342,9 +395,23 @@ const deleteItem = (item: FlowItem) => {
   }
 };
 
-const getItemIcon = (type: FlowItem['type']) => {
+const getItemIcon = (type: FlowItem['type'], item?: FlowItem) => {
   switch (type) {
     case 'channel':
+      if (item?.channelType) {
+        switch (item.channelType) {
+          case 'whatsapp':
+            return 'chat';
+          case 'instagram':
+            return 'photo_camera';
+          case 'facebook':
+            return 'thumb_up';
+          case 'widget':
+            return 'widgets';
+          default:
+            return 'hub';
+        }
+      }
       return 'hub';
     case 'agent':
       return 'smart_toy';
@@ -398,7 +465,7 @@ const resetZoom = () => {
   
   // Find min and max coordinates to determine bounding box
   const minX = Math.min(...items.value.map(item => item.x));
-  const maxX = Math.max(...items.value.map(item => item.x + 300)); // assuming card width is 300px
+  const maxX = Math.max(...items.value.map(item => item.x + 350)); // updated from 300px
   const minY = Math.min(...items.value.map(item => item.y));
   const maxY = Math.max(...items.value.map(item => item.y + 160)); // assuming card height is 160px
   
@@ -630,7 +697,7 @@ const generatePath = (connection: Connection) => {
   if (!sourceItem && !connection.isInProgress) return '';
   
   // Calculate source connection point position
-  const sourceX = sourceItem ? sourceItem.x + (connection.source.side === 'right' ? 300 : 0) : 0;
+  const sourceX = sourceItem ? sourceItem.x + (connection.source.side === 'right' ? 350 : 0) : 0;
   const sourceY = sourceItem ? sourceItem.y + 80 : 0;
   
   let targetX, targetY;
@@ -641,7 +708,7 @@ const generatePath = (connection: Connection) => {
     targetY = connection.mousePosY || 0;
   } else if (targetItem) {
     // For completed connections, use the target connection point
-    targetX = targetItem.x + (connection.target.side === 'right' ? 300 : 0);
+    targetX = targetItem.x + (connection.target.side === 'right' ? 350 : 0);
     targetY = targetItem.y + 80;
   } else {
     return '';
@@ -693,6 +760,18 @@ const stopCanvasDrag = () => {
   
   document.removeEventListener('mousemove', onCanvasDrag);
   document.removeEventListener('mouseup', stopCanvasDrag);
+};
+
+// Helper to get skill type label
+const getSkillTypeLabel = (skillType: SkillType): string => {
+  const found = skillTypes.find(type => type.value === skillType);
+  return found ? found.label : 'Unknown Skill Type';
+};
+
+// Helper to get channel type label
+const getChannelTypeLabel = (channelType: ChannelType): string => {
+  const found = channelTypes.find(type => type.value === channelType);
+  return found ? found.label : 'Unknown Channel Type';
 };
 
 // Attribute data-item-id to each flow-item
@@ -777,7 +856,7 @@ onUnmounted(() => {
 
 .flow-item {
   position: absolute;
-  width: 300px;
+  width: 350px;
   cursor: move;
 }
 
@@ -885,5 +964,12 @@ onUnmounted(() => {
   height: 100%;
   pointer-events: none;
   z-index: 0;
+}
+
+.card-header .text-h6 {
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style> 
