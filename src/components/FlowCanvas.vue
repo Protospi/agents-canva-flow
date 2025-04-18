@@ -438,6 +438,7 @@ const drawerOpen = ref(false);
 const selectedItem = ref<FlowItem | null>(null);
 const connections = ref<Connection[]>([]);
 const pendingConnection = ref<Connection | null>(null);
+const connectionDragStarted = ref(false);
 
 // Define skill types
 const skillTypes = [
@@ -702,6 +703,7 @@ const saveFlow = () => {
 const startConnection = (event: MouseEvent, item: FlowItem, side: 'left' | 'right' | 'top' | 'bottom') => {
   event.stopPropagation();
   isDraggingConnection = true;
+  connectionDragStarted.value = false;
   
   // Create a temporary connection
   const sourcePoint: ConnectionPoint = { itemId: item.id, side };
@@ -717,16 +719,35 @@ const startConnection = (event: MouseEvent, item: FlowItem, side: 'left' | 'righ
   
   const targetPoint: ConnectionPoint = { itemId: -1, side: targetSide };
   
+  // Calculate initial position based on the source connection point
+  let initialMouseX, initialMouseY;
+  switch(side) {
+    case 'left':
+      initialMouseX = item.x;
+      initialMouseY = item.y + 80;
+      break;
+    case 'right':
+      initialMouseX = item.x + 350;
+      initialMouseY = item.y + 80;
+      break;
+    case 'top':
+      initialMouseX = item.x + 175;
+      initialMouseY = item.y;
+      break;
+    case 'bottom':
+      initialMouseX = item.x + 175;
+      initialMouseY = item.y + 160;
+      break;
+  }
+  
   pendingConnection.value = {
     id: nextConnectionId++,
     source: sourcePoint,
     target: targetPoint,
     isInProgress: true,
-    mousePosX: 0,
-    mousePosY: 0
+    mousePosX: initialMouseX,
+    mousePosY: initialMouseY
   };
-  
-  connections.value.push(pendingConnection.value);
   
   const canvas = document.querySelector('.canvas-area');
   if (canvas) {
@@ -742,8 +763,50 @@ const updatePendingConnection = (event: MouseEvent) => {
   if (!canvasRect) return;
   
   // Update the mouse position as the temporary target
-  pendingConnection.value.mousePosX = (event.clientX - canvasRect.left) / zoom.value;
-  pendingConnection.value.mousePosY = (event.clientY - canvasRect.top) / zoom.value;
+  const currentMouseX = (event.clientX - canvasRect.left) / zoom.value;
+  const currentMouseY = (event.clientY - canvasRect.top) / zoom.value;
+  
+  // Store the original source position to use in distance calculation
+  const sourceItem = items.value.find(item => item.id === pendingConnection.value?.source.itemId);
+  if (!sourceItem) return;
+  
+  // Calculate source connection point position for distance calculation
+  let sourceX, sourceY;
+  switch(pendingConnection.value.source.side) {
+    case 'left':
+      sourceX = sourceItem.x;
+      sourceY = sourceItem.y + 80;
+      break;
+    case 'right':
+      sourceX = sourceItem.x + 350;
+      sourceY = sourceItem.y + 80;
+      break;
+    case 'top':
+      sourceX = sourceItem.x + 175;
+      sourceY = sourceItem.y;
+      break;
+    case 'bottom':
+      sourceX = sourceItem.x + 175;
+      sourceY = sourceItem.y + 160;
+      break;
+  }
+  
+  // If the mouse has moved significantly and the connection hasn't been added yet, add it
+  if (!connectionDragStarted.value) {
+    const dx = currentMouseX - sourceX;
+    const dy = currentMouseY - sourceY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // If mouse has moved enough, consider it a drag and add the connection to the array
+    if (distance > 10) {
+      connectionDragStarted.value = true;
+      connections.value.push(pendingConnection.value);
+    }
+  }
+  
+  // Always update the mouse position in the connection
+  pendingConnection.value.mousePosX = currentMouseX;
+  pendingConnection.value.mousePosY = currentMouseY;
 };
 
 const finishConnection = (event: MouseEvent) => {
@@ -754,6 +817,13 @@ const finishConnection = (event: MouseEvent) => {
   if (canvas) {
     canvas.removeEventListener('mousemove', updatePendingConnection as EventListener);
     canvas.removeEventListener('mouseup', finishConnection as EventListener);
+  }
+  
+  // If the connection drag hasn't started yet, just clean up and return
+  if (!connectionDragStarted.value) {
+    pendingConnection.value = null;
+    isDraggingConnection = false;
+    return;
   }
   
   // Check if we're over a valid connection point
@@ -770,6 +840,7 @@ const finishConnection = (event: MouseEvent) => {
   
   pendingConnection.value = null;
   isDraggingConnection = false;
+  connectionDragStarted.value = false;
 };
 
 const findConnectionPointUnderMouse = (event: MouseEvent): ConnectionPoint | null => {
@@ -836,6 +907,11 @@ const isValidConnection = (source: ConnectionPoint, target: ConnectionPoint) => 
 
 // Function to generate the SVG path for a connection
 const generatePath = (connection: Connection) => {
+  // Don't render the path if the connection hasn't started dragging yet
+  if (connection.isInProgress && !connectionDragStarted.value) {
+    return '';
+  }
+
   // Find source and target items
   const sourceItem = items.value.find(item => item.id === connection.source.itemId);
   const targetItem = items.value.find(item => item.id === connection.target.itemId);
