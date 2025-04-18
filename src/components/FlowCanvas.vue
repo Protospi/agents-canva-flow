@@ -352,20 +352,25 @@
 
               <!-- Add model dropdown for agents -->
               <div v-if="selectedItem.type === 'agent'" class="row q-mb-lg">
-                <div class="col-8 q-pr-sm">
+                <div class="col-4 q-pr-sm">
                   <q-input
                     v-model="selectedItem.title"
                     label="Agent Title"
                     :placeholder="getItemTitle(selectedItem)"
                     outlined
                     class="full-width"
-                  >
-                    <template v-slot:prepend>
-                      <q-icon :name="getItemIcon(selectedItem.type, selectedItem)" size="24px" />
-                    </template>
-                  </q-input>
+                  />
                 </div>
-                <div class="col-4">
+                <div class="col-4 q-px-sm">
+                  <q-input
+                    v-model="selectedItem.memory"
+                    label="Memory"
+                    placeholder="Agent memory"
+                    outlined
+                    class="full-width"
+                  />
+                </div>
+                <div class="col-4 q-pl-sm">
                   <q-select
                     v-model="selectedItem.modelType"
                     :options="modelTypes"
@@ -395,6 +400,9 @@
                 <q-card-section>
                   <div v-if="selectedItem.type === 'agent' && selectedItem.modelType" class="text-caption text-grey-7 q-mb-sm">
                     Model: {{ getModelTypeLabel(selectedItem.modelType) }}
+                  </div>
+                  <div v-if="selectedItem.type === 'agent' && selectedItem.memory" class="text-caption text-grey-7 q-mb-sm">
+                    Memory: {{ selectedItem.memory }}
                   </div>
                   <div class="text-grey-7">{{ selectedItem.description || 'Additional description will be displayed here' }}</div>
                 </q-card-section>
@@ -465,6 +473,7 @@ interface FlowItem {
   channelType?: ChannelType;
   agentType?: AgentType;
   modelType?: ModelType;
+  memory?: string;
 }
 
 interface Position {
@@ -552,6 +561,7 @@ const addAgent = (agentType: AgentType) => {
     description: '',
     agentType: agentType,
     modelType: 'gpt-4.1', // Default model
+    memory: '', // Default empty memory
     title: agentTypeLabel
   });
 };
