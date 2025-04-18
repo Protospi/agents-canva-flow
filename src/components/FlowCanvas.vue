@@ -395,7 +395,7 @@
                 rows="3"
               />
 
-              <div class="text-subtitle2 q-mb-sm">Preview</div>
+              <div class="text-subtitle2 q-mb-sm">Info</div>
               <q-card bordered class="full-width">
                 <q-card-section>
                   <div v-if="selectedItem.type === 'agent' && selectedItem.modelType" class="text-caption text-grey-7 q-mb-sm">
