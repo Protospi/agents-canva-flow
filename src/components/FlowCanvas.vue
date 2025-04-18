@@ -1,70 +1,135 @@
 <template>
   <div class="flow-canvas">
     <div class="action-buttons">
-      <q-btn-dropdown
-        color="primary"
-        icon="hub"
-        label="Add Channel"
-        class="q-mr-sm custom-button"
-      >
-        <q-list>
-          <q-item v-for="channelType in channelTypes" :key="channelType.value" clickable v-close-popup @click="addChannel(channelType.value as ChannelType)">
-            <q-item-section>
-              <q-item-label>{{ channelType.label }}</q-item-label>
-            </q-item-section>
-          </q-item>
-        </q-list>
-      </q-btn-dropdown>
-      <q-btn
-        color="primary"
-        icon="smart_toy"
-        label="Add Agent"
-        @click="addAgent"
-        class="q-mr-sm custom-button"
-      />
-      <q-btn-dropdown
-        color="primary"
-        icon="build"
-        label="Add Skill"
-        class="custom-button"
-      >
-        <q-list>
-          <q-item v-for="skillType in skillTypes" :key="skillType.value" clickable v-close-popup @click="addSkill(skillType.value as SkillType)">
-            <q-item-section>
-              <q-item-label>{{ skillType.label }}</q-item-label>
-            </q-item-section>
-          </q-item>
-        </q-list>
-      </q-btn-dropdown>
-      <div class="zoom-controls q-ml-md">
+      <!-- Left Section -->
+      <div class="left-section">
+        <!-- Add Template dropdown button -->
+        <q-btn-dropdown
+          color="primary"
+          icon="description"
+          label="Add Template"
+          class="q-mr-sm custom-button"
+        >
+          <q-list>
+            <q-item clickable v-close-popup>
+              <q-item-section>
+                <q-item-label>Concierge</q-item-label>
+              </q-item-section>
+            </q-item>
+            <q-item clickable v-close-popup>
+              <q-item-section>
+                <q-item-label>Seller</q-item-label>
+              </q-item-section>
+            </q-item>
+            <q-item clickable v-close-popup>
+              <q-item-section>
+                <q-item-label>Scheduler</q-item-label>
+              </q-item-section>
+            </q-item>
+            <q-item clickable v-close-popup>
+              <q-item-section>
+                <q-item-label>CS</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-btn-dropdown>
+        
+        <!-- Existing Add buttons -->
+        <q-btn-dropdown
+          color="primary"
+          icon="hub"
+          label="Add Channel"
+          class="q-mr-sm custom-button"
+        >
+          <q-list>
+            <q-item v-for="channelType in channelTypes" :key="channelType.value" clickable v-close-popup @click="addChannel(channelType.value as ChannelType)">
+              <q-item-section>
+                <q-item-label>{{ channelType.label }}</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-btn-dropdown>
+        <q-btn-dropdown
+          color="primary"
+          icon="smart_toy"
+          label="Add Agent"
+          class="q-mr-sm custom-button"
+        >
+          <q-list>
+            <q-item v-for="agentType in agentTypes" :key="agentType.value" clickable v-close-popup @click="addAgent(agentType.value as AgentType)">
+              <q-item-section>
+                <q-item-label>{{ agentType.label }}</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-btn-dropdown>
+        <q-btn-dropdown
+          color="primary"
+          icon="build"
+          label="Add Skill"
+          class="q-mr-sm custom-button"
+        >
+          <q-list>
+            <q-item v-for="skillType in skillTypes" :key="skillType.value" clickable v-close-popup @click="addSkill(skillType.value as SkillType)">
+              <q-item-section>
+                <q-item-label>{{ skillType.label }}</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-btn-dropdown>
+      </div>
+
+      <!-- Right Section - Action buttons -->
+      <div class="right-section">
+        <!-- Version dropdown -->
+        <q-btn-dropdown
+          color="primary"
+          icon="history"
+          label="Version"
+          class="q-mr-sm custom-button"
+        >
+          <q-list>
+            <q-item clickable v-close-popup>
+              <q-item-section>
+                <q-item-label>V1</q-item-label>
+              </q-item-section>
+            </q-item>
+            <q-item clickable v-close-popup>
+              <q-item-section>
+                <q-item-label>V2</q-item-label>
+              </q-item-section>
+            </q-item>
+            <q-item clickable v-close-popup>
+              <q-item-section>
+                <q-item-label>V3</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-btn-dropdown>
+
+        <!-- Existing Save button -->
         <q-btn
-          flat
-          round
-          color="grey-8"
-          icon="zoom_in"
-          @click="() => handleZoom(0.1)"
-        />
-        <q-btn
-          flat
-          round
-          color="grey-8"
-          icon="zoom_out"
-          @click="() => handleZoom(-0.1)"
-        />
-        <q-btn
-          flat
-          round
-          color="grey-8"
-          icon="restart_alt"
-          @click="resetZoom"
-        />
-        <q-btn
-          flat
-          round
-          color="grey-8"
+          color="primary"
           icon="save"
+          label="Save"
           @click="saveFlow"
-          class="q-ml-md"
+          class="q-mr-sm custom-button"
+        />
+
+        <!-- Export button -->
+        <q-btn
+          color="primary"
+          icon="download"
+          label="Download"
+          class="q-mr-sm custom-button"
+        />
+
+        <!-- Refresh button -->
+        <q-btn
+          color="primary"
+          icon="refresh"
+          label="Refresh"
+          class="custom-button"
         />
       </div>
     </div>
@@ -135,12 +200,17 @@
             
             <!-- Connection points based on item type -->
             <div class="connection-points">
-              <!-- Channel has only right connection -->
-              <div 
-                v-if="item.type === 'channel'" 
-                class="connection-point right"
-                @mousedown.stop="startConnection($event, item, 'right')"
-              ></div>
+              <!-- Channel has both left and right connections now -->
+              <template v-if="item.type === 'channel'">
+                <div 
+                  class="connection-point left"
+                  @mousedown.stop="startConnection($event, item, 'left')"
+                ></div>
+                <div 
+                  class="connection-point right"
+                  @mousedown.stop="startConnection($event, item, 'right')"
+                ></div>
+              </template>
               
               <!-- Agent has both left and right connections -->
               <template v-if="item.type === 'agent'">
@@ -154,15 +224,45 @@
                 ></div>
               </template>
               
-              <!-- Skill has only left connection -->
-              <div 
-                v-if="item.type === 'skill'" 
-                class="connection-point left"
-                @mousedown.stop="startConnection($event, item, 'left')"
-              ></div>
+              <!-- Skill has both left and right connections now -->
+              <template v-if="item.type === 'skill'">
+                <div 
+                  class="connection-point left"
+                  @mousedown.stop="startConnection($event, item, 'left')"
+                ></div>
+                <div 
+                  class="connection-point right"
+                  @mousedown.stop="startConnection($event, item, 'right')"
+                ></div>
+              </template>
             </div>
           </q-card>
         </div>
+      </div>
+      
+      <!-- Zoom Controls - Now positioned in bottom right corner of canvas -->
+      <div class="canvas-zoom-controls">
+        <q-btn
+          flat
+          round
+          color="grey-8"
+          icon="zoom_in"
+          @click="() => handleZoom(0.1)"
+        />
+        <q-btn
+          flat
+          round
+          color="grey-8"
+          icon="zoom_out"
+          @click="() => handleZoom(-0.1)"
+        />
+        <q-btn
+          flat
+          round
+          color="grey-8"
+          icon="restart_alt"
+          @click="resetZoom"
+        />
       </div>
     </q-card>
 
@@ -287,6 +387,9 @@ type SkillType = 'script' | 'dados_contato' | 'dados_entidade' | 'live_chat' |
 // Define channel type
 type ChannelType = 'whatsapp' | 'instagram' | 'facebook' | 'widget';
 
+// Define agent type
+type AgentType = 'conversational' | 'controller' | 'revisor' | 'extractor';
+
 interface FlowItem {
   id: number;
   type: 'channel' | 'agent' | 'skill';
@@ -296,6 +399,7 @@ interface FlowItem {
   description?: string;
   skillType?: SkillType;
   channelType?: ChannelType;
+  agentType?: AgentType;
 }
 
 interface Position {
@@ -323,6 +427,14 @@ const skillTypes = [
   { value: 'registrar_sdm', label: 'Registrar no SDM' },
   { value: 'enviar_midia', label: 'Enviar mídia' },
   { value: 'mensagem_interativa', label: 'Mensagem interativa' }
+];
+
+// Define agent types
+const agentTypes = [
+  { value: 'conversational', label: 'Conversational' },
+  { value: 'controller', label: 'Controller' },
+  { value: 'revisor', label: 'Revisor' },
+  { value: 'extractor', label: 'Extractor' }
 ];
 
 // Define channel types
@@ -356,13 +468,16 @@ const addChannel = (channelType: ChannelType) => {
   });
 };
 
-const addAgent = () => {
+const addAgent = (agentType: AgentType) => {
+  const agentTypeLabel = getAgentTypeLabel(agentType);
   items.value.push({
     id: nextId++,
     type: 'agent',
     x: Math.random() * 500,
     y: Math.random() * 300,
-    description: ''
+    description: '',
+    agentType: agentType,
+    title: agentTypeLabel
   });
 };
 
@@ -414,6 +529,20 @@ const getItemIcon = (type: FlowItem['type'], item?: FlowItem) => {
       }
       return 'hub';
     case 'agent':
+      if (item?.agentType) {
+        switch (item.agentType) {
+          case 'conversational':
+            return 'forum';
+          case 'controller':
+            return 'account_tree';
+          case 'revisor':
+            return 'rate_review';
+          case 'extractor':
+            return 'content_cut';
+          default:
+            return 'smart_toy';
+        }
+      }
       return 'smart_toy';
     case 'skill':
       return 'build';
@@ -655,7 +784,10 @@ const findConnectionPointUnderMouse = (event: MouseEvent): ConnectionPoint | nul
 };
 
 const isValidConnection = (source: ConnectionPoint, target: ConnectionPoint) => {
+  // Don't allow connections to the same item
   if (source.itemId === target.itemId) return false;
+  
+  // Don't allow connections between the same sides (left-to-left or right-to-right)
   if (source.side === target.side) return false;
   
   // Get the source and target items
@@ -664,28 +796,8 @@ const isValidConnection = (source: ConnectionPoint, target: ConnectionPoint) => 
   
   if (!sourceItem || !targetItem) return false;
   
-  // Check connection rules
-  // 1. Channel can only connect to agent from right side
-  if (sourceItem.type === 'channel' && (targetItem.type !== 'agent' || source.side !== 'right' || target.side !== 'left')) {
-    return false;
-  }
-  
-  // 2. Agent can connect to skill from right side
-  if (sourceItem.type === 'agent' && source.side === 'right') {
-    return targetItem.type === 'skill' && target.side === 'left';
-  }
-  
-  // 3. Agent can receive connection from channel or agent on left side
-  if (targetItem.type === 'agent' && target.side === 'left') {
-    return sourceItem.type === 'channel' || sourceItem.type === 'agent';
-  }
-  
-  // 4. Skill can only connect to agent on left side
-  if (targetItem.type === 'skill') {
-    return sourceItem.type === 'agent' && target.side === 'left' && source.side === 'right';
-  }
-  
-  return false;
+  // Allow all connections between any elements as long as they follow the basic rules above
+  return true;
 };
 
 // Function to generate the SVG path for a connection
@@ -768,6 +880,12 @@ const getSkillTypeLabel = (skillType: SkillType): string => {
   return found ? found.label : 'Unknown Skill Type';
 };
 
+// Helper to get agent type label
+const getAgentTypeLabel = (agentType: AgentType): string => {
+  const found = agentTypes.find(type => type.value === agentType);
+  return found ? found.label : 'Unknown Agent Type';
+};
+
 // Helper to get channel type label
 const getChannelTypeLabel = (channelType: ChannelType): string => {
   const found = channelTypes.find(type => type.value === channelType);
@@ -819,15 +937,39 @@ onUnmounted(() => {
   margin-bottom: 20px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
 }
 
-.custom-button {
-  background-color: #6467F2 !important;
+.left-section {
+  display: flex;
+  align-items: center;
+}
+
+.right-section {
+  display: flex;
+  align-items: center;
 }
 
 .zoom-controls {
   display: flex;
   gap: 8px;
+}
+
+.canvas-zoom-controls {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.custom-button {
+  background-color: #6467F2 !important;
 }
 
 .canvas-container {
