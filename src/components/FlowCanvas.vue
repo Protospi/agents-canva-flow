@@ -320,6 +320,9 @@
                   <div class="text-caption text-grey-7 q-mt-xs" v-if="selectedItem.type === 'channel' && selectedItem.channelType">
                     {{ getChannelTypeLabel(selectedItem.channelType) }}
                   </div>
+                  <div class="text-caption text-grey-7 q-mt-xs" v-if="selectedItem.type === 'agent' && selectedItem.modelType">
+                    {{ getModelTypeLabel(selectedItem.modelType) }}
+                  </div>
                 </div>
               </div>
               <q-btn
@@ -340,11 +343,42 @@
                 :placeholder="getItemTitle(selectedItem)"
                 outlined
                 class="q-mb-lg full-width"
+                v-if="selectedItem.type !== 'agent'"
               >
                 <template v-slot:prepend>
                   <q-icon :name="getItemIcon(selectedItem.type, selectedItem)" size="24px" />
                 </template>
               </q-input>
+
+              <!-- Add model dropdown for agents -->
+              <div v-if="selectedItem.type === 'agent'" class="row q-mb-lg">
+                <div class="col-8 q-pr-sm">
+                  <q-input
+                    v-model="selectedItem.title"
+                    label="Agent Title"
+                    :placeholder="getItemTitle(selectedItem)"
+                    outlined
+                    class="full-width"
+                  >
+                    <template v-slot:prepend>
+                      <q-icon :name="getItemIcon(selectedItem.type, selectedItem)" size="24px" />
+                    </template>
+                  </q-input>
+                </div>
+                <div class="col-4">
+                  <q-select
+                    v-model="selectedItem.modelType"
+                    :options="modelTypes"
+                    option-value="value"
+                    option-label="label"
+                    label="Model"
+                    outlined
+                    emit-value
+                    map-options
+                    class="full-width"
+                  />
+                </div>
+              </div>
 
               <q-input
                 v-model="selectedItem.description"
@@ -359,6 +393,9 @@
               <div class="text-subtitle2 q-mb-sm">Preview</div>
               <q-card bordered class="full-width">
                 <q-card-section>
+                  <div v-if="selectedItem.type === 'agent' && selectedItem.modelType" class="text-caption text-grey-7 q-mb-sm">
+                    Model: {{ getModelTypeLabel(selectedItem.modelType) }}
+                  </div>
                   <div class="text-grey-7">{{ selectedItem.description || 'Additional description will be displayed here' }}</div>
                 </q-card-section>
               </q-card>
@@ -414,6 +451,9 @@ type ChannelType = 'whatsapp' | 'instagram' | 'facebook' | 'widget';
 // Define agent type
 type AgentType = 'conversational' | 'controller' | 'revisor' | 'extractor';
 
+// Define model type
+type ModelType = 'gpt-4.1' | 'gpt-4.1-mini' | 'gemini-2.5-flash' | 'gemini-2.5-pro';
+
 interface FlowItem {
   id: number;
   type: 'channel' | 'agent' | 'skill';
@@ -424,6 +464,7 @@ interface FlowItem {
   skillType?: SkillType;
   channelType?: ChannelType;
   agentType?: AgentType;
+  modelType?: ModelType;
 }
 
 interface Position {
@@ -470,6 +511,14 @@ const channelTypes = [
   { value: 'widget', label: 'Widget' }
 ];
 
+// Define model types
+const modelTypes = [
+  { value: 'gpt-4.1', label: 'GPT-4.1' },
+  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' }
+];
+
 let nextId = 1;
 let nextConnectionId = 1;
 let draggedItem: FlowItem | null = null;
@@ -502,6 +551,7 @@ const addAgent = (agentType: AgentType) => {
     y: Math.random() * 300,
     description: '',
     agentType: agentType,
+    modelType: 'gpt-4.1', // Default model
     title: agentTypeLabel
   });
 };
@@ -1078,6 +1128,12 @@ const getAgentTypeLabel = (agentType: AgentType): string => {
 const getChannelTypeLabel = (channelType: ChannelType): string => {
   const found = channelTypes.find(type => type.value === channelType);
   return found ? found.label : 'Unknown Channel Type';
+};
+
+// Helper to get model type label
+const getModelTypeLabel = (modelType: ModelType): string => {
+  const found = modelTypes.find(type => type.value === modelType);
+  return found ? found.label : 'Unknown Model Type';
 };
 
 // Attribute data-item-id to each flow-item
