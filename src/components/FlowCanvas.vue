@@ -200,7 +200,7 @@
             
             <!-- Connection points based on item type -->
             <div class="connection-points">
-              <!-- Channel has both left and right connections now -->
+              <!-- Channel connections -->
               <template v-if="item.type === 'channel'">
                 <div 
                   class="connection-point left"
@@ -210,9 +210,17 @@
                   class="connection-point right"
                   @mousedown.stop="startConnection($event, item, 'right')"
                 ></div>
+                <div 
+                  class="connection-point top"
+                  @mousedown.stop="startConnection($event, item, 'top')"
+                ></div>
+                <div 
+                  class="connection-point bottom"
+                  @mousedown.stop="startConnection($event, item, 'bottom')"
+                ></div>
               </template>
               
-              <!-- Agent has both left and right connections -->
+              <!-- Agent connections -->
               <template v-if="item.type === 'agent'">
                 <div 
                   class="connection-point left"
@@ -222,9 +230,17 @@
                   class="connection-point right"
                   @mousedown.stop="startConnection($event, item, 'right')"
                 ></div>
+                <div 
+                  class="connection-point top"
+                  @mousedown.stop="startConnection($event, item, 'top')"
+                ></div>
+                <div 
+                  class="connection-point bottom"
+                  @mousedown.stop="startConnection($event, item, 'bottom')"
+                ></div>
               </template>
               
-              <!-- Skill has both left and right connections now -->
+              <!-- Skill connections -->
               <template v-if="item.type === 'skill'">
                 <div 
                   class="connection-point left"
@@ -233,6 +249,14 @@
                 <div 
                   class="connection-point right"
                   @mousedown.stop="startConnection($event, item, 'right')"
+                ></div>
+                <div 
+                  class="connection-point top"
+                  @mousedown.stop="startConnection($event, item, 'top')"
+                ></div>
+                <div 
+                  class="connection-point bottom"
+                  @mousedown.stop="startConnection($event, item, 'bottom')"
                 ></div>
               </template>
             </div>
@@ -367,7 +391,7 @@ import { ref, onUnmounted, onMounted } from 'vue';
 
 interface ConnectionPoint {
   itemId: number;
-  side: 'left' | 'right';
+  side: 'left' | 'right' | 'top' | 'bottom';
 }
 
 interface Connection {
@@ -675,13 +699,23 @@ const saveFlow = () => {
 
 // Connection handling functions
 
-const startConnection = (event: MouseEvent, item: FlowItem, side: 'left' | 'right') => {
+const startConnection = (event: MouseEvent, item: FlowItem, side: 'left' | 'right' | 'top' | 'bottom') => {
   event.stopPropagation();
   isDraggingConnection = true;
   
   // Create a temporary connection
   const sourcePoint: ConnectionPoint = { itemId: item.id, side };
-  const targetPoint: ConnectionPoint = { itemId: -1, side: side === 'left' ? 'right' : 'left' };
+  
+  // Determine opposite side for initial target
+  let targetSide: 'left' | 'right' | 'top' | 'bottom';
+  switch(side) {
+    case 'left': targetSide = 'right'; break;
+    case 'right': targetSide = 'left'; break;
+    case 'top': targetSide = 'bottom'; break;
+    case 'bottom': targetSide = 'top'; break;
+  }
+  
+  const targetPoint: ConnectionPoint = { itemId: -1, side: targetSide };
   
   pendingConnection.value = {
     id: nextConnectionId++,
@@ -771,7 +805,7 @@ const findConnectionPointUnderMouse = (event: MouseEvent): ConnectionPoint | nul
       
       if (itemIdStr) {
         const itemId = parseInt(itemIdStr);
-        const side: 'left' | 'right' = point.classList.contains('left') ? 'left' : 'right';
+        const side: 'left' | 'right' | 'top' | 'bottom' = point.classList.contains('left') ? 'left' : point.classList.contains('right') ? 'right' : point.classList.contains('top') ? 'top' : 'bottom';
         
         if (itemId >= 0) {
           return { itemId, side };
@@ -787,7 +821,7 @@ const isValidConnection = (source: ConnectionPoint, target: ConnectionPoint) => 
   // Don't allow connections to the same item
   if (source.itemId === target.itemId) return false;
   
-  // Don't allow connections between the same sides (left-to-left or right-to-right)
+  // Don't allow connections between the same sides (left-to-left, top-to-top, etc.)
   if (source.side === target.side) return false;
   
   // Get the source and target items
@@ -809,8 +843,25 @@ const generatePath = (connection: Connection) => {
   if (!sourceItem && !connection.isInProgress) return '';
   
   // Calculate source connection point position
-  const sourceX = sourceItem ? sourceItem.x + (connection.source.side === 'right' ? 350 : 0) : 0;
-  const sourceY = sourceItem ? sourceItem.y + 80 : 0;
+  let sourceX, sourceY;
+  switch(connection.source.side) {
+    case 'left':
+      sourceX = sourceItem ? sourceItem.x : 0;
+      sourceY = sourceItem ? sourceItem.y + 80 : 0;
+      break;
+    case 'right':
+      sourceX = sourceItem ? sourceItem.x + 350 : 0;
+      sourceY = sourceItem ? sourceItem.y + 80 : 0;
+      break;
+    case 'top':
+      sourceX = sourceItem ? sourceItem.x + 175 : 0;
+      sourceY = sourceItem ? sourceItem.y : 0;
+      break;
+    case 'bottom':
+      sourceX = sourceItem ? sourceItem.x + 175 : 0;
+      sourceY = sourceItem ? sourceItem.y + 160 : 0;
+      break;
+  }
   
   let targetX, targetY;
   
@@ -820,17 +871,78 @@ const generatePath = (connection: Connection) => {
     targetY = connection.mousePosY || 0;
   } else if (targetItem) {
     // For completed connections, use the target connection point
-    targetX = targetItem.x + (connection.target.side === 'right' ? 350 : 0);
-    targetY = targetItem.y + 80;
+    switch(connection.target.side) {
+      case 'left':
+        targetX = targetItem.x;
+        targetY = targetItem.y + 80;
+        break;
+      case 'right':
+        targetX = targetItem.x + 350;
+        targetY = targetItem.y + 80;
+        break;
+      case 'top':
+        targetX = targetItem.x + 175;
+        targetY = targetItem.y;
+        break;
+      case 'bottom':
+        targetX = targetItem.x + 175;
+        targetY = targetItem.y + 160;
+        break;
+    }
   } else {
     return '';
   }
   
-  // Create a curved path
-  const controlPointX1 = sourceX + (connection.source.side === 'right' ? 50 : -50);
-  const controlPointX2 = targetX + (connection.target.side === 'right' ? 50 : -50);
+  // Create curve control points based on the connection sides
+  let controlPointX1, controlPointY1, controlPointX2, controlPointY2;
   
-  return `M ${sourceX} ${sourceY} C ${controlPointX1} ${sourceY}, ${controlPointX2} ${targetY}, ${targetX} ${targetY}`;
+  // Set control points based on source side
+  switch(connection.source.side) {
+    case 'left':
+      controlPointX1 = sourceX - 50;
+      controlPointY1 = sourceY;
+      break;
+    case 'right':
+      controlPointX1 = sourceX + 50;
+      controlPointY1 = sourceY;
+      break;
+    case 'top':
+      controlPointX1 = sourceX;
+      controlPointY1 = sourceY - 50;
+      break;
+    case 'bottom':
+      controlPointX1 = sourceX;
+      controlPointY1 = sourceY + 50;
+      break;
+  }
+  
+  // Set control points based on target side
+  if (connection.isInProgress) {
+    // For in-progress connections, just make a straight line to cursor
+    controlPointX2 = targetX;
+    controlPointY2 = targetY;
+  } else {
+    switch(connection.target.side) {
+      case 'left':
+        controlPointX2 = targetX - 50;
+        controlPointY2 = targetY;
+        break;
+      case 'right':
+        controlPointX2 = targetX + 50;
+        controlPointY2 = targetY;
+        break;
+      case 'top':
+        controlPointX2 = targetX;
+        controlPointY2 = targetY - 50;
+        break;
+      case 'bottom':
+        controlPointX2 = targetX;
+        controlPointY2 = targetY + 50;
+        break;
+    }
+  }
+  
+  return `M ${sourceX} ${sourceY} C ${controlPointX1} ${controlPointY1}, ${controlPointX2} ${controlPointY2}, ${targetX} ${targetY}`;
 };
 
 // Add canvas dragging functions
@@ -1113,5 +1225,25 @@ onUnmounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.connection-point.top {
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.connection-point.bottom {
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.connection-point.top:hover {
+  transform: translateX(-50%) scale(1.2);
+}
+
+.connection-point.bottom:hover {
+  transform: translateX(-50%) scale(1.2);
 }
 </style> 
