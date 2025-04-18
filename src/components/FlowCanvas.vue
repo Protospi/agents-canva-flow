@@ -407,6 +407,116 @@
                   <div class="text-grey-7">{{ selectedItem.description || 'Additional description will be displayed here' }}</div>
                 </q-card-section>
               </q-card>
+              
+              <!-- Conditions section - only for agents -->
+              <div v-if="selectedItem.type === 'agent'" class="q-mt-lg">
+                <q-card bordered class="full-width condition-card">
+                  <!-- Card header with expand/collapse button -->
+                  <q-card-section 
+                    class="row items-center justify-between q-py-sm"
+                    @click="conditionsExpanded = !conditionsExpanded"
+                  >
+                    <div class="text-subtitle2">Execution Conditions</div>
+                    <q-btn
+                      flat
+                      round
+                      dense
+                      :icon="conditionsExpanded ? 'expand_less' : 'expand_more'"
+                      @click.stop
+                      aria-label="Toggle conditions visibility"
+                    />
+                  </q-card-section>
+                  
+                  <!-- Expandable content -->
+                  <q-slide-transition>
+                    <div v-show="conditionsExpanded">
+                      <q-separator />
+                      <q-card-section>
+                        <div v-for="(condition, index) in conditions" :key="index" class="condition-row q-mb-md">
+                          <!-- First row: Condition type toggle and delete button -->
+                          <div class="row q-mb-md items-center">
+                            <div class="col">
+                              <q-btn-toggle
+                                v-model="condition.logicType"
+                                :options="[
+                                  { label: 'AND CONDITION', value: 'AND' },
+                                  { label: 'OR CONDITION', value: 'OR' }
+                                ]"
+                                class="logic-type-toggle"
+                                :disable="index === 0"
+                                toggle-color="secondary"
+                                text-color="white"
+                                color="grey-4"
+                                unelevated
+                                rounded
+                              />
+                            </div>
+                            
+                            <!-- Remove button - aligned to the right -->
+                            <div class="col-auto">
+                              <q-btn
+                                icon="delete"
+                                flat
+                                dense
+                                round
+                                color="grey-7"
+                                @click="removeCondition(index)"
+                              />
+                            </div>
+                          </div>
+                          
+                          <!-- Second row: Input fields -->
+                          <div class="row q-col-gutter-sm">
+                            <div class="col-4">
+                              <q-input
+                                v-model="condition.memoryVariable"
+                                outlined
+                                dense
+                                label="Memory Variable"
+                                placeholder="Enter memory path"
+                              />
+                            </div>
+                            <div class="col-4">
+                              <q-select
+                                v-model="condition.operator"
+                                :options="comparisonOperators"
+                                outlined
+                                dense
+                                label="Operator"
+                                option-label="label"
+                                option-value="value"
+                                emit-value
+                                map-options
+                              />
+                            </div>
+                            <div class="col-4">
+                              <q-input
+                                v-model="condition.value"
+                                outlined
+                                dense
+                                label="Value"
+                                placeholder="Value to compare"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <!-- Add condition button -->
+                        <div class="text-center q-mt-md">
+                          <q-btn
+                            color="secondary"
+                            icon="add"
+                            label="ADD CONDITION"
+                            @click="addCondition('AND')"
+                            no-caps
+                            text-color="white"
+                          />
+                        </div>
+                      </q-card-section>
+                    </div>
+                  </q-slide-transition>
+                </q-card>
+              </div>
             </div>
           </div>
 
@@ -462,6 +572,23 @@ type AgentType = 'conversational' | 'controller' | 'revisor' | 'extractor';
 // Define model type
 type ModelType = 'gpt-4.1' | 'gpt-4.1-mini' | 'gemini-2.5-flash' | 'gemini-2.5-pro';
 
+// Define comparison operators
+type ComparisonOperator = 'existe' | 'nao_existe' | 'igual_a' | 'diferente_de' | 
+                          'maior_que' | 'maior_ou_igual' | 'menor_que' | 'menor_ou_igual' | 
+                          'comeca_com' | 'termina_com' | 'contem';
+
+// Define logical operator
+type LogicalOperator = 'AND' | 'OR';
+
+// Define condition type
+interface Condition {
+  id: number;
+  logicType: LogicalOperator;
+  memoryVariable: string;
+  operator: ComparisonOperator;
+  value: string;
+}
+
 interface FlowItem {
   id: number;
   type: 'channel' | 'agent' | 'skill';
@@ -474,6 +601,7 @@ interface FlowItem {
   agentType?: AgentType;
   modelType?: ModelType;
   memory?: string;
+  conditions?: Condition[]; // Add conditions to FlowItem
 }
 
 interface Position {
@@ -528,8 +656,28 @@ const modelTypes = [
   { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' }
 ];
 
+// Define comparison operators
+const comparisonOperators = [
+  { value: 'existe', label: 'Existe' },
+  { value: 'nao_existe', label: 'Não existe' },
+  { value: 'igual_a', label: 'Igual a' },
+  { value: 'diferente_de', label: 'Diferente de' },
+  { value: 'maior_que', label: 'Maior que' },
+  { value: 'maior_ou_igual', label: 'Maior ou igual' },
+  { value: 'menor_que', label: 'Menor que' },
+  { value: 'menor_ou_igual', label: 'Menor ou igual' },
+  { value: 'comeca_com', label: 'Começa com' },
+  { value: 'termina_com', label: 'Termina com' },
+  { value: 'contem', label: 'Contém' }
+];
+
+// Conditions state
+const conditions = ref<Condition[]>([]);
+const conditionsExpanded = ref(false);
+
 let nextId = 1;
 let nextConnectionId = 1;
+let nextConditionId = 1;
 let draggedItem: FlowItem | null = null;
 let initialX = 0;
 let initialY = 0;
@@ -562,7 +710,8 @@ const addAgent = (agentType: AgentType) => {
     agentType: agentType,
     modelType: 'gpt-4.1', // Default model
     memory: '', // Default empty memory
-    title: agentTypeLabel
+    title: agentTypeLabel,
+    conditions: [] // Initialize with empty conditions array
   });
 };
 
@@ -744,12 +893,31 @@ const toggleDrawer = (item: FlowItem) => {
   } else {
     // Open drawer with new selected item
     selectedItem.value = item;
+    
+    // Initialize conditions if this is an agent
+    if (item.type === 'agent') {
+      // If the item already has conditions, use those; otherwise, initialize with empty array
+      if (item.conditions && item.conditions.length > 0) {
+        conditions.value = [...item.conditions];
+      } else {
+        conditions.value = [];
+      }
+      
+      // Reset expansion state
+      conditionsExpanded.value = false;
+    }
+    
     drawerOpen.value = true;
   }
 };
 
 const saveChanges = () => {
-  // For now, just close the drawer since changes are already saved in real-time
+  // Save conditions to the selected item if it's an agent
+  if (selectedItem.value && selectedItem.value.type === 'agent') {
+    selectedItem.value.conditions = [...conditions.value];
+  }
+  
+  // Close the drawer
   drawerOpen.value = false;
 };
 
@@ -1146,6 +1314,22 @@ const getModelTypeLabel = (modelType: ModelType): string => {
   return found ? found.label : 'Unknown Model Type';
 };
 
+// Add a new condition
+const addCondition = (logicType: LogicalOperator = 'AND') => {
+  conditions.value.push({
+    id: nextConditionId++,
+    logicType: conditions.value.length > 0 ? logicType : 'AND', // Force first condition to be AND
+    memoryVariable: '',
+    operator: 'igual_a',
+    value: ''
+  });
+};
+
+// Remove a condition
+const removeCondition = (index: number) => {
+  conditions.value.splice(index, 1);
+};
+
 // Attribute data-item-id to each flow-item
 onMounted(() => {
   const observer = new MutationObserver(() => {
@@ -1387,5 +1571,45 @@ onUnmounted(() => {
 
 .connection-point.bottom:hover {
   transform: translateX(-50%) scale(1.2);
+}
+
+/* Conditions styling */
+.condition-row {
+  position: relative;
+  padding: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background-color: #f9f9f9;
+}
+
+.condition-row:hover {
+  background-color: #f0f0f0;
+}
+
+.first-condition-label {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.9em;
+  color: #666;
+}
+
+.logic-type-chip {
+  min-width: 70px;
+  justify-content: center;
+}
+
+.logic-type-toggle {
+  width: 100%;
+  max-width: 320px;
+}
+
+.condition-card .q-card__section:first-child {
+  cursor: pointer;
+}
+
+.condition-card .q-card__section:first-child:hover {
+  background-color: rgba(0, 0, 0, 0.03);
 }
 </style> 
