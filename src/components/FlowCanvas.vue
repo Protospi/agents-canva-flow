@@ -353,10 +353,10 @@
 
 <script setup lang="ts">
 import { ref, onUnmounted, onMounted } from 'vue';
-import AgentDrawer from './AgentDrawer.vue';
-import SkillDrawer from './SkillDrawer.vue';
-import ChannelDrawer from './ChannelDrawer.vue';
-import ConversationWidget from './ConversationWidget.vue';
+import AgentDrawer from './nodes/AgentDrawer.vue';
+import SkillDrawer from './nodes/SkillDrawer.vue';
+import ChannelDrawer from './nodes/ChannelDrawer.vue';
+import ConversationWidget from './conversation/ConversationWidget.vue';
 import { BotMessageSquare } from 'lucide-vue-next';
 import type {
   ConnectionPoint,

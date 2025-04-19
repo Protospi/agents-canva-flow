@@ -79,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import type { SkillType } from './models';
+import type { SkillType } from '../models';
 import { ref, onMounted } from 'vue';
 
 // Define props and emits

@@ -55,10 +55,10 @@
 
 <script setup lang="ts">
 import { ref, defineProps, defineEmits, computed } from 'vue';
-import ConversationSection from './drawer/ConversationSection.vue';
-import TestsSection from './drawer/TestsSection.vue';
-import LogsSection from './drawer/LogsSection.vue';
-import MemorySection from './drawer/MemorySection.vue';
+import ConversationSection from './ConversationSection.vue';
+import TestsSection from './TestsSection.vue';
+import LogsSection from './LogsSection.vue';
+import MemorySection from './MemorySection.vue';
 
 const props = defineProps({
   isOpen: {

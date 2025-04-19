@@ -232,7 +232,7 @@ import type {
   LogicalOperator,
   Condition,
   FlowItem
-} from './models';
+} from '../models';
 
 // Define props and emits
 const props = defineProps({
