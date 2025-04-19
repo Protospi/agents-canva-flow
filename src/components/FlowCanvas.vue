@@ -338,16 +338,13 @@ import { ref, onUnmounted, onMounted } from 'vue';
 import AgentDrawer from './AgentDrawer.vue';
 import SkillDrawer from './SkillDrawer.vue';
 import ChannelDrawer from './ChannelDrawer.vue';
-import {
+import type {
   ConnectionPoint,
   Connection,
   SkillType,
   ChannelType,
   AgentType,
   ModelType,
-  ComparisonOperator,
-  LogicalOperator,
-  Condition,
   FlowItem,
   Position
 } from './models';
@@ -392,7 +389,7 @@ const channelTypes = [
 ];
 
 // Define model types
-const modelTypes = [
+const modelTypes: Array<{value: ModelType, label: string}> = [
   { value: 'gpt-4.1', label: 'GPT-4.1' },
   { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
@@ -446,10 +443,10 @@ const addAgent = (agentType: AgentType) => {
     y: Math.random() * 300,
     description: '',
     agentType: agentType,
-    modelType: 'gpt-4.1', // Default model
-    memory: '', // Default empty memory
+    modelType: 'gpt-4.1' as ModelType,
+    memory: '',
     title: agentTypeLabel,
-    conditions: [] // Initialize with empty conditions array
+    conditions: []
   });
 };
 
@@ -1032,12 +1029,6 @@ const getAgentTypeLabel = (agentType: AgentType): string => {
 const getChannelTypeLabel = (channelType: ChannelType): string => {
   const found = channelTypes.find(type => type.value === channelType);
   return found ? found.label : 'Unknown Channel Type';
-};
-
-// Helper to get model type label
-const getModelTypeLabel = (modelType: ModelType): string => {
-  const found = modelTypes.find(type => type.value === modelType);
-  return found ? found.label : 'Unknown Model Type';
 };
 
 // Attribute data-item-id to each flow-item

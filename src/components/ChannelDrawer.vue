@@ -10,10 +10,10 @@
           />
           <div class="column">
             <div class="row items-center">
-              <span>{{ channel.title || getItemTitle() }}</span>
+              <span>{{ localChannel.title || getItemTitle() }}</span>
             </div>
-            <div class="text-caption text-grey-7 q-mt-xs" v-if="channel.channelType">
-              {{ getChannelTypeLabel(channel.channelType) }}
+            <div class="text-caption text-grey-7 q-mt-xs" v-if="localChannel.channelType">
+              {{ getChannelTypeLabel(localChannel.channelType) }}
             </div>
           </div>
         </div>
@@ -30,7 +30,7 @@
     <div class="drawer-body q-pa-md">
       <div class="full-width">
         <q-input
-          v-model="channel.title"
+          v-model="localChannel.title"
           label="Card Title"
           :placeholder="getItemTitle()"
           outlined
@@ -42,7 +42,7 @@
         </q-input>
 
         <q-input
-          v-model="channel.description"
+          v-model="localChannel.description"
           label="Card Description"
           placeholder="Additional description will be displayed here"
           outlined
@@ -54,7 +54,7 @@
         <div class="text-subtitle2 q-mb-sm">Info</div>
         <q-card bordered class="full-width">
           <q-card-section>
-            <div class="text-grey-7">{{ channel.description || 'Additional description will be displayed here' }}</div>
+            <div class="text-grey-7">{{ localChannel.description || 'Additional description will be displayed here' }}</div>
           </q-card-section>
         </q-card>
       </div>
@@ -79,7 +79,8 @@
 </template>
 
 <script setup lang="ts">
-import { ChannelType } from './models';
+import type { ChannelType } from './models';
+import { ref, onMounted } from 'vue';
 
 // Define props and emits
 const props = defineProps({
@@ -91,6 +92,14 @@ const props = defineProps({
     type: Array<{value: string, label: string}>,
     required: true
   }
+});
+
+// Create a local copy of the channel to avoid mutating props directly
+const localChannel = ref({ ...props.channel });
+
+// Update local channel when props change
+onMounted(() => {
+  localChannel.value = { ...props.channel };
 });
 
 const emit = defineEmits(['close', 'save']);
@@ -108,8 +117,8 @@ const getItemTitle = () => {
 
 // Helper method to get item icon
 const getItemIcon = () => {
-  if (props.channel.channelType) {
-    switch (props.channel.channelType) {
+  if (localChannel.value.channelType) {
+    switch (localChannel.value.channelType) {
       case 'whatsapp':
         return 'chat';
       case 'instagram':
@@ -128,7 +137,7 @@ const getItemIcon = () => {
 // Save changes and emit event
 const saveChanges = () => {
   // Emit save event with the updated channel
-  emit('save', { ...props.channel });
+  emit('save', { ...localChannel.value });
 };
 </script>
 

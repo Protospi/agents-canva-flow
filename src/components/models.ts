@@ -53,6 +53,23 @@ export interface Condition {
   value: string;
 }
 
+// Define version language variant
+export interface LanguageVariant {
+  content: string;
+  html: string;
+}
+
+// Define prompt version
+export interface PromptVersion {
+  name: string;
+  timestamp: string;
+  content: string;
+  html: string;
+  languages?: {
+    [langCode: string]: LanguageVariant;
+  };
+}
+
 export interface FlowItem {
   id: number;
   type: 'channel' | 'agent' | 'skill';
@@ -66,6 +83,12 @@ export interface FlowItem {
   modelType?: ModelType;
   memory?: string;
   conditions?: Condition[];
+  prompt?: {
+    content: string;
+    html: string;
+    versions?: PromptVersion[];
+    currentVersionIndex?: number | null;
+  };
 }
 
 export interface Position {

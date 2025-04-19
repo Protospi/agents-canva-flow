@@ -10,10 +10,10 @@
           />
           <div class="column">
             <div class="row items-center">
-              <span>{{ agent.title || getItemTitle() }}</span>
+              <span>{{ agentData.title || getItemTitle() }}</span>
             </div>
-            <div class="text-caption text-grey-7 q-mt-xs" v-if="agent.modelType">
-              {{ getModelTypeLabel(agent.modelType) }}
+            <div class="text-caption text-grey-7 q-mt-xs" v-if="agentData.modelType">
+              {{ getModelTypeLabel(agentData.modelType) }}
             </div>
           </div>
         </div>
@@ -33,7 +33,7 @@
         <div class="row q-mb-lg">
           <div class="col-4 q-pr-sm">
             <q-input
-              v-model="agent.title"
+              v-model="agentData.title"
               label="Agent Title"
               :placeholder="getItemTitle()"
               outlined
@@ -42,7 +42,7 @@
           </div>
           <div class="col-4 q-px-sm">
             <q-input
-              v-model="agent.memory"
+              v-model="agentData.memory"
               label="Memory"
               placeholder="Agent memory"
               outlined
@@ -51,7 +51,7 @@
           </div>
           <div class="col-4 q-pl-sm">
             <q-select
-              v-model="agent.modelType"
+              v-model="agentData.modelType"
               :options="modelTypes"
               option-value="value"
               option-label="label"
@@ -65,27 +65,14 @@
         </div>
 
         <q-input
-          v-model="agent.description"
-          label="Card Description"
+          v-model="agentData.description"
+          label="Agent Description"
           placeholder="Additional description will be displayed here"
           outlined
           class="q-mb-lg full-width"
           type="textarea"
-          rows="3"
+          rows="1"
         />
-
-        <div class="text-subtitle2 q-mb-sm">Info</div>
-        <q-card bordered class="full-width">
-          <q-card-section>
-            <div v-if="agent.modelType" class="text-caption text-grey-7 q-mb-sm">
-              Model: {{ getModelTypeLabel(agent.modelType) }}
-            </div>
-            <div v-if="agent.memory" class="text-caption text-grey-7 q-mb-sm">
-              Memory: {{ agent.memory }}
-            </div>
-            <div class="text-grey-7">{{ agent.description || 'Additional description will be displayed here' }}</div>
-          </q-card-section>
-        </q-card>
         
         <!-- Conditions section - only for agents -->
         <div class="q-mt-lg">
@@ -115,20 +102,36 @@
                     <!-- First row: Condition type toggle and delete button -->
                     <div class="row q-mb-md items-center">
                       <div class="col">
-                        <q-btn-toggle
-                          v-model="condition.logicType"
-                          :options="[
-                            { label: 'AND CONDITION', value: 'AND' },
-                            { label: 'OR CONDITION', value: 'OR' }
-                          ]"
-                          class="logic-type-toggle"
-                          :disable="index === 0"
-                          toggle-color="secondary"
-                          text-color="white"
-                          color="grey-4"
-                          unelevated
-                          rounded
-                        />
+                        <div class="row items-center">
+                          <!-- First condition shows only AND -->
+                          <div v-if="index === 0" class="custom-toggle-wrapper single-option">
+                            <div class="toggle-indicator"></div>
+                            <div class="toggle-options-container">
+                              <div class="toggle-option active">AND</div>
+                            </div>
+                          </div>
+                          <!-- Other conditions can toggle between AND/OR -->
+                          <div v-else class="custom-toggle-wrapper">
+                            <div class="toggle-indicator" :class="{'position-right': condition.logicType === 'OR'}"></div>
+                            <div class="toggle-options-container">
+                              <div 
+                                class="toggle-option" 
+                                :class="{'active': condition.logicType === 'AND'}"
+                                @click="condition.logicType = 'AND'"
+                              >
+                                AND
+                              </div>
+                              <div 
+                                class="toggle-option" 
+                                :class="{'active': condition.logicType === 'OR'}"
+                                @click="condition.logicType = 'OR'"
+                              >
+                                OR
+                              </div>
+                            </div>
+                          </div>
+                          <div class="condition-label q-ml-sm">CONDITION</div>
+                        </div>
                       </div>
                       
                       <!-- Remove button - aligned to the right -->
@@ -183,7 +186,7 @@
                   <!-- Add condition button -->
                   <div class="text-center q-mt-md">
                     <q-btn
-                      color="secondary"
+                      color="primary"
                       icon="add"
                       label="ADD CONDITION"
                       @click="addCondition('AND')"
@@ -196,6 +199,10 @@
             </q-slide-transition>
           </q-card>
         </div>
+
+        <!-- Prompt editor -->
+        <!-- <div class="text-subtitle2 q-mb-sm" style="margin-top: 20px;">Prompt</div>
+        <PromptEditor v-model="agentData.prompt" /> -->
       </div>
     </div>
 
@@ -218,18 +225,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
-import {
+import { ref, onMounted, watch, reactive } from 'vue';
+import PromptEditor from './PromptEditor.vue';
+import type {
   ModelType,
-  ComparisonOperator,
   LogicalOperator,
-  Condition
+  Condition,
+  FlowItem
 } from './models';
 
 // Define props and emits
 const props = defineProps({
   agent: {
-    type: Object,
+    type: Object as () => FlowItem,
     required: true
   },
   modelTypes: {
@@ -243,6 +251,37 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'save']);
+
+// Create a local copy of the agent to avoid mutating props directly
+const agentData = reactive<FlowItem>({
+  ...props.agent
+});
+
+// Initialize the prompt property if it doesn't exist
+if (!agentData.prompt) {
+  agentData.prompt = {
+    content: '',
+    html: '',
+    versions: [],
+    currentVersionIndex: null
+  };
+}
+
+// Watch for changes to the agent prop and update the local copy
+watch(() => props.agent, (newAgent) => {
+  // First copy all properties from the new agent
+  Object.assign(agentData, newAgent);
+  
+  // Then ensure the prompt property exists
+  if (!agentData.prompt) {
+    agentData.prompt = {
+      content: '',
+      html: '',
+      versions: [],
+      currentVersionIndex: null
+    };
+  }
+}, { deep: true });
 
 // Initialize conditions
 const conditions = ref<Condition[]>([]);
@@ -263,9 +302,14 @@ watch(() => props.agent.conditions, (newConditions) => {
 
 // Add a new condition
 const addCondition = (logicType: LogicalOperator = 'AND') => {
+  // Always set the first condition to AND
+  if (conditions.value.length === 0) {
+    logicType = 'AND';
+  }
+  
   conditions.value.push({
     id: nextConditionId++,
-    logicType: conditions.value.length > 0 ? logicType : 'AND', // Force first condition to be AND
+    logicType,
     memoryVariable: '',
     operator: 'igual_a',
     value: ''
@@ -309,9 +353,9 @@ const getItemIcon = () => {
 
 // Save changes and emit event
 const saveChanges = () => {
-  // Create a copy of the agent with the updated conditions
+  // Create a copy with updated agentData and conditions
   const updatedAgent = {
-    ...props.agent,
+    ...agentData,
     conditions: [...conditions.value]
   };
   
@@ -378,23 +422,81 @@ onMounted(() => {
   background-color: #f0f0f0;
 }
 
-.first-condition-label {
-  height: 32px;
+.condition-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #666;
+  letter-spacing: 0.5px;
+}
+
+/* Custom toggle styling */
+.custom-toggle-wrapper {
+  position: relative;
+  width: 180px;
+  height: 38px;
+  background-color: #f0f0f0;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-right: 12px;
+}
+
+.single-option {
+  width: 90px;
+}
+
+.single-option .toggle-indicator {
+  width: 84px;
+  left: 3px;
+  transform: none !important;
+}
+
+.toggle-options-container {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+}
+
+.toggle-option {
+  flex: 1;
   display: flex;
   align-items: center;
-  font-weight: 600;
-  font-size: 0.9em;
-  color: #666;
-}
-
-.logic-type-chip {
-  min-width: 70px;
   justify-content: center;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  font-size: 0.85rem;
+  font-weight: 500;
+  user-select: none;
+  color: rgba(0, 0, 0, 0.7);
+  padding: 0 15px;
+  letter-spacing: 0.5px;
 }
 
-.logic-type-toggle {
-  width: 100%;
-  max-width: 320px;
+.toggle-option.active {
+  color: white;
+}
+
+.toggle-indicator {
+  position: absolute;
+  width: 50%;
+  height: 80%;
+  top: 10%;
+  left: 3px;
+  background-color: #6467F2;
+  border-radius: 18px;
+  transition: transform 0.3s ease;
+  z-index: 1;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-indicator.position-right {
+  transform: translateX(calc(100% - 6px));
+}
+
+.toggle-indicator.hidden {
+  display: none;
 }
 
 .condition-card .q-card__section:first-child {

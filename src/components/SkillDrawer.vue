@@ -10,10 +10,10 @@
           />
           <div class="column">
             <div class="row items-center">
-              <span>{{ skill.title || getItemTitle() }}</span>
+              <span>{{ localSkill.title || getItemTitle() }}</span>
             </div>
-            <div class="text-caption text-grey-7 q-mt-xs" v-if="skill.skillType">
-              {{ getSkillTypeLabel(skill.skillType) }}
+            <div class="text-caption text-grey-7 q-mt-xs" v-if="localSkill.skillType">
+              {{ getSkillTypeLabel(localSkill.skillType) }}
             </div>
           </div>
         </div>
@@ -30,7 +30,7 @@
     <div class="drawer-body q-pa-md">
       <div class="full-width">
         <q-input
-          v-model="skill.title"
+          v-model="localSkill.title"
           label="Card Title"
           :placeholder="getItemTitle()"
           outlined
@@ -42,7 +42,7 @@
         </q-input>
 
         <q-input
-          v-model="skill.description"
+          v-model="localSkill.description"
           label="Card Description"
           placeholder="Additional description will be displayed here"
           outlined
@@ -54,7 +54,7 @@
         <div class="text-subtitle2 q-mb-sm">Info</div>
         <q-card bordered class="full-width">
           <q-card-section>
-            <div class="text-grey-7">{{ skill.description || 'Additional description will be displayed here' }}</div>
+            <div class="text-grey-7">{{ localSkill.description || 'Additional description will be displayed here' }}</div>
           </q-card-section>
         </q-card>
       </div>
@@ -79,7 +79,8 @@
 </template>
 
 <script setup lang="ts">
-import { SkillType } from './models';
+import type { SkillType } from './models';
+import { ref, onMounted } from 'vue';
 
 // Define props and emits
 const props = defineProps({
@@ -91,6 +92,14 @@ const props = defineProps({
     type: Array<{value: string, label: string}>,
     required: true
   }
+});
+
+// Create a local copy of the skill to avoid mutating props directly
+const localSkill = ref({ ...props.skill });
+
+// Update local skill when props change
+onMounted(() => {
+  localSkill.value = { ...props.skill };
 });
 
 const emit = defineEmits(['close', 'save']);
@@ -109,7 +118,7 @@ const getItemTitle = () => {
 // Save changes and emit event
 const saveChanges = () => {
   // Emit save event with the updated skill
-  emit('save', { ...props.skill });
+  emit('save', { ...localSkill.value });
 };
 </script>
 
