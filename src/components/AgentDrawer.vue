@@ -226,7 +226,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, reactive } from 'vue';
-import PromptEditor from './PromptEditor.vue';
+// import PromptEditor from './PromptEditor.vue';
 import type {
   ModelType,
   LogicalOperator,

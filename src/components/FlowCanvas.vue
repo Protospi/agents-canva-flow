@@ -264,7 +264,7 @@
         </div>
       </div>
       
-      <!-- Zoom Controls - Now positioned in bottom right corner of canvas -->
+      <!-- Zoom Controls - Now positioned in bottom left corner of canvas -->
       <div class="canvas-zoom-controls">
         <q-btn
           flat
@@ -287,6 +287,18 @@
           icon="restart_alt"
           @click="resetZoom"
         />
+      </div>
+      
+      <!-- Chat Avatar Button - Positioned in bottom right corner of canvas -->
+      <div class="chat-avatar-button">
+        <q-btn
+          round
+          color="primary"
+          @click="toggleChatDrawer"
+          class="chat-btn"
+        >
+          <BotMessageSquare class="chat-icon" />
+        </q-btn>
       </div>
     </q-card>
 
@@ -330,6 +342,12 @@
         />
       </template>
     </q-drawer>
+    
+    <!-- Conversation Widget Drawer -->
+    <conversation-widget
+      :is-open="chatDrawerOpen"
+      @update:is-open="chatDrawerOpen = $event"
+    />
   </div>
 </template>
 
@@ -338,6 +356,8 @@ import { ref, onUnmounted, onMounted } from 'vue';
 import AgentDrawer from './AgentDrawer.vue';
 import SkillDrawer from './SkillDrawer.vue';
 import ChannelDrawer from './ChannelDrawer.vue';
+import ConversationWidget from './ConversationWidget.vue';
+import { BotMessageSquare } from 'lucide-vue-next';
 import type {
   ConnectionPoint,
   Connection,
@@ -353,6 +373,7 @@ const items = ref<FlowItem[]>([]);
 const zoom = ref(1);
 const position = ref<Position>({ x: 0, y: 0 });
 const drawerOpen = ref(false);
+const chatDrawerOpen = ref(false);
 const selectedItem = ref<FlowItem | null>(null);
 const connections = ref<Connection[]>([]);
 const pendingConnection = ref<Connection | null>(null);
@@ -1062,6 +1083,10 @@ onUnmounted(() => {
     canvas.removeEventListener('mouseup', finishConnection as EventListener);
   }
 });
+
+const toggleChatDrawer = () => {
+  chatDrawerOpen.value = !chatDrawerOpen.value;
+};
 </script>
 
 <style scoped>
@@ -1097,7 +1122,7 @@ onUnmounted(() => {
 .canvas-zoom-controls {
   position: absolute;
   bottom: 20px;
-  right: 20px;
+  left: 20px;
   display: flex;
   gap: 8px;
   z-index: 10;
@@ -1105,6 +1130,24 @@ onUnmounted(() => {
   border-radius: 8px;
   padding: 4px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.chat-avatar-button {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10;
+}
+
+.chat-btn {
+  width: 56px;
+  height: 56px;
+}
+
+.chat-icon {
+  width: 24px;
+  height: 24px;
+  color: white;
 }
 
 .custom-button {
